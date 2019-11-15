@@ -42,6 +42,7 @@ public class ProjectDAO {
                     project.setTime(resultSet.getString("time"));
                     project.setProjectId(resultSet.getInt("projectId"));
                     project.setLeaderId(resultSet.getInt("leaderId"));
+                    project.setDepartment(resultSet.getString("department"));
                     projects.add(project);
                 }
             }
@@ -70,5 +71,30 @@ public class ProjectDAO {
         }
 
         return  employeeIds;
+    }
+
+    //列举
+    public ArrayList<Project> list(){
+        ArrayList<Project> projects = new ArrayList<>();
+
+        String sql = "select * from project";
+
+        try(Connection connection = this.getConnection(); PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+            ResultSet resultSet = preparedStatement.executeQuery();
+
+            while(resultSet.next()){
+                Project project = new Project();
+                project.setName(resultSet.getString("name"));
+                project.setTime(resultSet.getString("time"));
+                project.setProjectId(resultSet.getInt("projectId"));
+                project.setLeaderId(resultSet.getInt("leaderId"));
+                project.setDepartment(resultSet.getString("department"));
+                projects.add(project);
+            }
+        } catch (SQLException e){
+            e.printStackTrace();
+        }
+
+        return projects;
     }
 }
