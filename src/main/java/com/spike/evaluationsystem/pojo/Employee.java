@@ -11,6 +11,15 @@ public class Employee{
     private float attendanceScore = 0;
     private float totalScore = 0;
     private ArrayList<Project> projects;
+    private String department;
+
+    public void setDepartment(String department) {
+        this.department = department;
+    }
+
+    public String getDepartment() {
+        return department;
+    }
 
     public void setUsername(String username){
         this.username = username;
