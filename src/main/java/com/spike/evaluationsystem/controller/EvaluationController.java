@@ -14,7 +14,7 @@ public class EvaluationController {
 
     // 上传自我评价
     @PostMapping("/evaluation/self")
-    public String uploadSelfEvaluaion(@RequestParam(value = "id", required = true) int id, @RequestBody SelfEvaluation selfEvaluation){
+    public JSONObject uploadSelfEvaluaion(@RequestParam(value = "id", required = true) int id, @RequestBody SelfEvaluation selfEvaluation){
         EmployeeDAO employeeDAO = new EmployeeDAO();
         Employee retrieveEmployee = employeeDAO.retrieve(id);
 
@@ -28,7 +28,13 @@ public class EvaluationController {
             //更新自我评价
             new SelfEvaluationDAO().update(retrieveEmployee.getSelfEvaluationId(), selfEvaluation);
         }
-        return "hello";
+
+        JSONObject jsonObject = new JSONObject();
+        Weight weight = new WeightDAO().retrieve(retrieveEmployee.getDepartment());
+        float score = new SelfStrategy(selfEvaluation).calculate(weight);
+        new ScoreDAO().updateSelfScore(score, id);
+        jsonObject.put("score", score);
+        return jsonObject;
     }
 
     //获取领导评价
@@ -50,18 +56,23 @@ public class EvaluationController {
         retrieveEmployee.setProjects(projects);
 
         JSONObject jsonObject = new JSONObject();
-        jsonObject.put("attendanceScore", retrieveEmployee.getAttendanceScore());
+        float score = 0f;
+        score = retrieveEmployee.getAttendanceScore();
+        jsonObject.put("attendanceScore", score);
         JSONArray jsonArray = new JSONArray();
 
         for(int i=0; i<retrieveEmployee.getProjects().size(); i++){
             JSONObject subJsonObject = new JSONObject();
             subJsonObject.put("name", retrieveEmployee.getProjects().get(i).getName());
             subJsonObject.put("score", retrieveEmployee.getProjects().get(i).getScore());
+            score += retrieveEmployee.getProjects().get(i).getScore();
             jsonArray.add(subJsonObject);
         }
 
+        new ScoreDAO().updateAttendanceScore(score, retrieveEmployee.getId());
+
         jsonObject.put("projects", jsonArray);
-        jsonObject.put("totalScore", retrieveEmployee.getTotalScore());
+        jsonObject.put("totalScore", score);
 
         return jsonObject;
     }
@@ -84,6 +95,8 @@ public class EvaluationController {
             retrieveEmployee.getProjects().get(i).setEmployees(employees);
         }
 
+        float score = 0f;
+
         JSONArray jsonArray = new JSONArray();
 
         int projectsNum = retrieveEmployee.getProjects().size();
@@ -102,11 +115,15 @@ public class EvaluationController {
                 subJsonObject.put("id", subEmployee.getId());
                 subJsonObject.put("name", subEmployee.getUsername());
                 subJsonObject.put("score", retrieveEmployee.getProjects().get(i).getScore());
+                score += retrieveEmployee.getProjects().get(i).getScore();
                 subJsonArray.add(subJsonObject);
             }
             jsonObject.put("members", subJsonArray);
             jsonArray.add(jsonObject);
         }
+        Weight weight = new WeightDAO().retrieve(retrieveEmployee.getDepartment());
+        score = new ProjectStrategy(score).calculate(weight);
+        new ScoreDAO().updateProjectScore(score, retrieveEmployee.getId());
         return jsonArray;
     }
 
@@ -123,9 +140,123 @@ public class EvaluationController {
             memberEvaluationDAO.add(memberEvaluation);
         }
         JSONObject jsonObject = new JSONObject();
-        float score = new MemberStrategy(memberEvaluation).calculate();
-        score = (score*100)/100;
+        Employee employee = new EmployeeDAO().retrieve(memberEvaluation.getId());
+        Weight weight = new WeightDAO().retrieve(employee.getDepartment());
+        float score = new MemberStrategy(memberEvaluation).calculate(weight);
         jsonObject.put("score", score);
         return jsonObject;
     }
+
+    //上传权重
+    @PostMapping("/weight")
+    @ResponseBody
+    public void uploadWeight(@RequestBody Weight weight){
+        WeightDAO weightDAO = new WeightDAO();
+        Weight retrieveWeight = weightDAO.retrieve(weight.getDepartment());
+
+        if( retrieveWeight == null){
+            weightDAO.add(weight);
+        }else{
+            weightDAO.update(weight);
+        }
+    }
+
+    //上传领导评价
+    @PostMapping("/boss/evaluation")
+    @ResponseBody
+    public JSONObject uploadBossEvaluation(@RequestParam(value = "id", required = true) int id, @RequestBody BossEvaluation bossEvaluation){
+        EmployeeDAO employeeDAO = new EmployeeDAO();
+        Employee retrieveEmployee = employeeDAO.retrieve(id);
+
+        //判断是否第一次上传
+        if(retrieveEmployee.getBossEvaluationId() == 0){
+            //第一次上传
+            int bossEvaluationId = new BossEvaluationDAO().add(bossEvaluation);
+            retrieveEmployee.setBossEvaluationId(bossEvaluationId);
+            employeeDAO.update(retrieveEmployee);
+        }else{
+            //更新自我评价
+            new BossEvaluationDAO().update(retrieveEmployee.getBossEvaluationId(), bossEvaluation);
+        }
+
+        JSONObject jsonObject = new JSONObject();
+        Weight weight = new WeightDAO().retrieve(retrieveEmployee.getDepartment());
+        float score = new BossStrategy(bossEvaluation).calculate(weight);
+        new ScoreDAO().updateBossScore(score, id);
+        jsonObject.put("score", score);
+        return jsonObject;
+    }
+
+    //获取所有员工信息
+    @GetMapping("/information/employees")
+    @ResponseBody
+    public JSONArray getEmployeeInformation(){
+        ArrayList<Employee> employees = new EmployeeDAO().list();
+        JSONArray jsonArray = new JSONArray();
+
+        BossEvaluationDAO bossEvaluationDAO = new BossEvaluationDAO();
+        for(int i=0; i<employees.size(); i++){
+            JSONObject jsonObject = new JSONObject();
+            jsonObject.put("id", employees.get(i).getId());
+            jsonObject.put("name", employees.get(i).getUsername());
+            jsonObject.put("department", employees.get(i).getDepartment());
+            jsonObject.put("bossScore", new BossStrategy(bossEvaluationDAO.retrieve(employees.get(i).getBossEvaluationId())).calculate(new WeightDAO().retrieve(employees.get(i).getDepartment())));
+            jsonObject.put("finalScore", employees.get(i).getTotalScore());
+            jsonArray.add(jsonObject);
+        }
+
+        return jsonArray;
+    }
+
+    //获取所有项目信息
+    @GetMapping("/information/projects")
+    @ResponseBody
+    public JSONArray getProjectsInformation(){
+        ArrayList<Project> projects = new ProjectDAO().list();
+        JSONArray jsonArray = new JSONArray();
+
+        EmployeeDAO employeeDAO = new EmployeeDAO();
+        for(int i=0; i<projects.size(); i++){
+            JSONObject jsonObject = new JSONObject();
+            jsonObject.put("id", projects.get(i).getProjectId());
+            jsonObject.put("name", projects.get(i).getName());
+            jsonObject.put("leader", employeeDAO.retrieve(projects.get(i).getProjectId()).getUsername());
+            jsonObject.put("department", projects.get(i).getDepartment());
+            jsonObject.put("beginDate", projects.get(i).getTime());
+            jsonArray.add(jsonObject);
+        }
+
+        return jsonArray;
+    }
+
+    //获得权重
+    @GetMapping("/weight/get")
+    @ResponseBody
+    public JSONObject getWeight(@RequestParam(value = "department", required = true) String department){
+        JSONObject jsonObject = new JSONObject();
+
+        Weight weight = new WeightDAO().retrieve(department);
+
+        jsonObject.put("attendanceWeight", weight.getAttendanceWeight());
+        jsonObject.put("projectWeight", weight.getProjectWeight());
+        jsonObject.put("selfEvaluationWeight", weight.getSelfEvaluationWeight() );
+        jsonObject.put("bossEvaluationWeight", weight.getBossEvaluationWeight());
+
+        return jsonObject;
+    }
+
+    //获得总分
+    @GetMapping("/totalScore")
+    @ResponseBody
+    public JSONObject getTotalScore(@RequestParam(value = "id", required = true) int id){
+        JSONObject jsonObject = new JSONObject();
+
+        float score = new ScoreDAO().getTotal(id);
+        score = (score*100)/100;
+        jsonObject.put("finalScore", score);
+
+        return jsonObject;
+    }
+
+
 }
