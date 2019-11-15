@@ -65,6 +65,7 @@ public class EmployeeDAO {
                 retrieveEmployee.setPassword(resultSet.getString("password"));
                 retrieveEmployee.setAttendanceScore(resultSet.getFloat("attendanceScore"));
                 retrieveEmployee.setTotalScore(resultSet.getFloat("totalScore"));
+                retrieveEmployee.setDepartment(resultSet.getString("department"));
             }
         } catch (SQLException e){
             e.printStackTrace();
@@ -120,5 +121,32 @@ public class EmployeeDAO {
         }
 
         return  employees;
+    }
+
+    //列举
+    public ArrayList<Employee> list(){
+        ArrayList<Employee> employees = new ArrayList<>();
+
+        String sql = "select * from employee";
+        try(Connection connection = this.getConnection(); PreparedStatement preparedStatement = connection.prepareStatement(sql)){
+
+            ResultSet resultSet = preparedStatement.executeQuery();
+            while(resultSet.next()){
+                Employee employee = new Employee();
+                employee.setId(resultSet.getInt("id"));
+                employee.setSelfEvaluationId(resultSet.getInt("selfEvaluationId"));
+                employee.setBossEvaluationId(resultSet.getInt("bossEvaluationId"));
+                employee.setUsername(resultSet.getString("username"));
+                employee.setPassword(resultSet.getString("password"));
+                employee.setAttendanceScore(resultSet.getFloat("attendanceScore"));
+                employee.setTotalScore(resultSet.getFloat("totalScore"));
+                employee.setDepartment(resultSet.getString("department"));
+                employees.add(employee);
+            }
+        } catch (SQLException e){
+            e.printStackTrace();
+        }
+
+        return employees;
     }
 }
