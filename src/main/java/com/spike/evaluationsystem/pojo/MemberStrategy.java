@@ -7,9 +7,9 @@ public class MemberStrategy implements Strategy {
     }
 
     @Override
-    public float calculate() {
-        float score = (memberEvaluation.getStaff_comunication_ability() * 0.5f) + (memberEvaluation.getStaff_enthusiasm() * 0.8f) +
-                (memberEvaluation.getStaff_task_completion_time() * 1.2f);
+    public float calculate(Weight weight) {
+        float score = (memberEvaluation.getStaff_comunication_ability()  + memberEvaluation.getStaff_enthusiasm() +
+                memberEvaluation.getStaff_task_completion_time() ) * weight.getProjectWeight();
         return score;
     }
 }
