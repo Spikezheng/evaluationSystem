@@ -9,6 +9,15 @@ public class Project {
     private int projectId;
     private int leaderId;
     private ArrayList<Employee> employees;
+    private String department;
+
+    public String getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(String department) {
+        this.department = department;
+    }
 
     public void setName(String name) {
         this.name = name;
